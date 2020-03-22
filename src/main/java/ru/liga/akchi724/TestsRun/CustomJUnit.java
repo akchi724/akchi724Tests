@@ -7,77 +7,82 @@ import ru.liga.akchi724.annatations.*;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class CustomJUnit {
-    public static void runTests(String pathClass) {
+    public  void runTests(String pathClass) {
         List<Class<?>> classesList = getClassesFromPath(pathClass);
-        if (classesList.size() == 0) System.out.println("В данном пакете нет ни одного класса");
-        else classesList.forEach(CustomJUnit::startMethods);
+        if (classesList.size() == 0)
+            System.out.println("В данном пакете нет ни одного класса");
+        else classesList.forEach(x->startMethods(x));
 
     }
 
-    private static void startMethods(Class<?> someClass) {
+    private  void startMethods(Class<?> someClass) {
         try {
-            takeMethods(getMethodsWithAnnotations(someClass, Test.class)
-                    , getMethodsWithAnnotations(someClass, Before.class)
-                    , getMethodsWithAnnotations(someClass, After.class)
+            invokeMethods(getMethodsWithAnnotations(someClass, Test.class)
+                    , getOnlyOneMethodWithAnnotation(someClass, Before.class)
+                    , getOnlyOneMethodWithAnnotation(someClass, After.class)
                     , someClass.getConstructor().newInstance());
         }catch (Exception ex){
             ex.printStackTrace();
         }
     }
 
-    private static void takeMethods(List<Method> testMethods, List<Method> beforeMethods, List<Method> afterMethods, Object object){
+    private void invokeMethods(List<Method> testMethods, Method beforeMethod, Method afterMethod, Object object){
         try {
 
-            beforeMethods.forEach(beforeMethod -> {
                 try {
                     beforeMethod.invoke(object);
                 } catch (IllegalAccessException | InvocationTargetException e) {
-
+                    e.printStackTrace();
                 }
-            });
+
             testMethods.forEach(testMethod -> {
                 FontColor.soutBlue("Запуск выполнения метода \""+testMethod.getName()+"\"");
-
                 try {
                     testMethod.invoke(object);
                 } catch (IllegalAccessException | InvocationTargetException e) {
-
+                    e.printStackTrace();
                 }
                 System.out.println("\""+testMethod.getName()+"\" выполнен");
                 System.out.println("");
             });
-            afterMethods.forEach(afterMethod -> {
+
                 try {
                     afterMethod.invoke(object);
                 } catch (IllegalAccessException | InvocationTargetException e) {
-
+                    e.printStackTrace();
                 }
-
-            });
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static List<Method> getMethodsWithAnnotations(Class<?> someClass, Class an) {
+    private List<Method> getMethodsWithAnnotations(Class<?> someClass, Class an) {
         return Arrays.stream(someClass.getMethods())
                 .filter(method -> method.getAnnotation(an) != null).collect(Collectors.toList());
     }
+    private Method getOnlyOneMethodWithAnnotation(Class<?> someClass,Class an){
+        List<Method> methods= new ArrayList<>();
+        methods=Arrays.stream(someClass.getMethods()).filter(method -> method.getAnnotation(an)!=null).collect(Collectors.toList());
+        if (methods.size()>1)
+            FontColor.soutRed("Используйте только один метод с аннотацией @"+an.getSimpleName());
+        return methods.get(0);
+    }
 
-    private static List<Class<?>> getClassesFromPath(String pathClass) {
+    private List<Class<?>> getClassesFromPath(String pathClass) {
         return new Reflections(pathClass, new SubTypesScanner(false))
                 .getAllTypes()
                 .stream()
-                .map(CustomJUnit::getClassForName)
+                .map(x->getClassForName(x))
                 .collect(Collectors.toList());
     }
 
-    private  static Class<?> getClassForName(String name)  {
+    private Class<?> getClassForName(String name)  {
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException e){
